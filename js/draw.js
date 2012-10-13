@@ -1,4 +1,5 @@
 var sphereVertexPositionBuffer;
+var sphereBaryCentricBuffer;
 var gl;
 var shaderProgram;
 
@@ -58,7 +59,9 @@ function initShaders() {
     gl.useProgram(shaderProgram);
 
     shaderProgram.vertexPositionAttribute = gl.getAttribLocation(shaderProgram, "aVertexPosition");
+    shaderProgram.baryCentricAttribute = gl.getAttribLocation(shaderProgram, "aBaryCentric");
     gl.enableVertexAttribArray(shaderProgram.vertexPositionAttribute);
+    gl.enableVertexAttribArray(shaderProgram.baryCentricAttribute);
 
     shaderProgram.pMatrixUniform = gl.getUniformLocation(shaderProgram, "uPMatrix");
     shaderProgram.mvMatrixUniform = gl.getUniformLocation(shaderProgram, "uMVMatrix");
@@ -98,7 +101,7 @@ function sphere(maxLevel = 3)
         [vec3.create([1,0,0]), vec3.create([0,0,1]), vec3.create([0,-1,0])],
         [vec3.create([0,-1,0]), vec3.create([0,0,1]), vec3.create([-1,0,0])],
         [vec3.create([-1,0,0]), vec3.create([0,0,1]), vec3.create([0,1,0])],
-        /*
+        //*
         [vec3.create([0,1,0]), vec3.create([1,0,0]), vec3.create([0,0,-1])],
         [vec3.create([0,0,-1]), vec3.create([1,0,0]), vec3.create([0,-1,0])],
         [vec3.create([0,0,-1]), vec3.create([0,-1,0]), vec3.create([-1,0,0])],
@@ -126,10 +129,11 @@ function sphere(maxLevel = 3)
 function initBuffers(gl)
 {
     sphereVertexPositionBuffer = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
+    sphereBaryCentricBuffer = gl.createBuffer();
 
     vertices = [];
-    triangles = sphere(1);
+    baryCentric = []
+    triangles = sphere(3);
     for (var i = 0; i < triangles.length; ++i)
     {
         for (var j=0; j<3; ++j)
@@ -138,11 +142,28 @@ function initBuffers(gl)
             {
                 vertices.push(triangles[i][j][k]);
             }
-        }
+       }
+       baryCentric.push(1.0);
+       baryCentric.push(0.0);
+       baryCentric.push(0.0);
+
+       baryCentric.push(0.0);
+       baryCentric.push(1.0);
+       baryCentric.push(0.0);
+
+       baryCentric.push(0.0);
+       baryCentric.push(0.0);
+       baryCentric.push(1.0);
     }
 
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
     sphereVertexPositionBuffer.numItems = vertices.length/3;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBaryCentricBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(baryCentric), gl.STATIC_DRAW);
+    sphereBaryCentricBuffer.numItems = vertices.length/3;
+
 }
 
 var angle = 0.0;
@@ -154,16 +175,19 @@ function draw(gl)
 
     mat4.perspective(45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0, pMatrix);
     mat4.identity(mvMatrix);
-    mat4.translate(mvMatrix, [0.0, 0.0, -7.0]);
-    mat4.rotate(mvMatrix, angle, [1.0, 0.0, 0.0]);
+    mat4.translate(mvMatrix, [0.0, 0.0, -3.0]);
+    mat4.rotate(mvMatrix, angle, [1.0, 1.0, 0.0]);
 
-
+    gl.bindBuffer(gl.ARRAY_BUFFER, sphereBaryCentricBuffer);
+    gl.vertexAttribPointer(shaderProgram.baryCentricAttribute, 3, gl.FLOAT, false, 0, 0);
+ 
     gl.bindBuffer(gl.ARRAY_BUFFER, sphereVertexPositionBuffer);
     gl.vertexAttribPointer(shaderProgram.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+    
     setMatrixUniforms();
     gl.drawArrays(gl.TRIANGLES, 0, sphereVertexPositionBuffer.numItems);
 
-    angle += 0.1;
+    angle += 0.05;
     setTimeout(function(){draw(gl);}, 100);
 }
 
